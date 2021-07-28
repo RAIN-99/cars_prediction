@@ -12,7 +12,7 @@ from bs4.element import ResultSet, Tag
 from tqdm import trange
 
 BASE_URL = "https://kolesa.kz"
-URL = f"{BASE_URL}/spectehnika/gruzoviki/"
+URL = f"{BASE_URL}/cars/avtomobili-s-probegom/almaty/"
 HEADERS = {
     "accept": "*/*",
     "user-agent": "Mozilla/5.0 (Windows NT 10.0; Win64; x64)"
@@ -73,12 +73,21 @@ def gather_valuable_data(advert: Tag) -> Tuple[str, ...]:
     engine_volume_pattern = re.compile(r"(^\d+.*)(\s)(л$)")
     # все виды топлива указываемые в объявлении
     fuels = ("бензин", "дизель", "газ-бензин", "газ", "гибрид", "электричество")
+    # КПП
+    kpp = ('КПП механика',"КПП автомат", "КПП типтроник", "КПП вариатор", "КПП робот")
     # название техники, берем всегда только первые три слова из названия
     vehicle_mark = " ".join(
         advert.find("span", {"class": "a-el-info-title"}).text.split()[:3]
     )
     price = "".join(advert.find("span", {"class": "price"}).text.split()[:-1])
-    emergency = advert.find("span", {"class": "emergency"}).text.split(",")[0]
+
+    #emergency 
+    if advert.find("span", {"class": "emergency"}):
+        need_repair = 1
+    else:
+        need_repair = 0
+
+    
     # блок с описанием объявления
     description = (
         advert.find("div", {"class": "a-search-description"})
@@ -102,21 +111,33 @@ def gather_valuable_data(advert: Tag) -> Tuple[str, ...]:
         engine_volume = description[1].strip()
     else:
         engine_volume = ""
-    # по умолчанию пустое значение типа топлива
+    # по умолчанию пустое значение типа топлива и кпп и пробег
     fuel_type = ""
-    # проверка на соответствие с одним из значений топлива
+    kpp_type = ""
+    mileage = ''
+    # проверка на соответствие с одним из значений топлива и КПП и пробег
     for target in description[1:]:
         if target.strip() in fuels:
             fuel_type = target.strip()
+        if target.strip() in kpp:
+            kpp_type = target.strip()
+        if target.strip().startswith("с пробегом"):
+            mileage = target.strip()
+
+
+
 
     data = (
         vehicle_mark,
         year,
         price,
-        emergency,
         fuel_type,
         engine_volume,
         vehicle_type,
+        kpp_type,
+        mileage,
+        need_repair,
+
     )
 
     return data
@@ -140,6 +161,8 @@ def collect_data(adverts: ResultSet) -> List:
             continue
         except IndexError:
             continue
+        except: 
+            continue
     return collection
 
 
@@ -157,10 +180,12 @@ def save_data(filename, data: List) -> None:
                 "vehicle",
                 "year",
                 "price",
-                "emergency",
                 "fuel_type",
                 "engine_volume",
                 "vehicle_type",
+                "kpp_type",
+                "mileage",
+                "need_repair",
             )
         )
 
@@ -184,7 +209,7 @@ def main():
         # паузим выполнение на рандомную секунду
         time.sleep(rand_sec)
 
-    save_data("pretty_data.csv", data_collection)
+    save_data("../data/data_cars.csv", data_collection)
 
 
 if __name__ == "__main__":
